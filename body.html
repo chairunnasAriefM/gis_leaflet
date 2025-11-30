@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>GeoSmart Dashboard</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.control.layers.tree/L.control.layers.tree.css" />
+
+    <style>
+        :root {
+            --primary-color: #4F46E5; /* Indigo Modern */
+            --accent-color: #EC4899; /* Pink Modern */
+            --dark-bg: #111827;
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.5);
+            --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif;
+            background: var(--dark-bg);
+            overflow: hidden; /* Mencegah scroll bar ganda */
+        }
+
+        /* Styling Header Floating */
+        #header-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: var(--glass-bg);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 15px 25px;
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow);
+            max-width: 300px;
+            transition: transform 0.3s ease;
+        }
+
+        #header-overlay:hover {
+            transform: translateY(-2px);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+            background: linear-gradient(to right, var(--primary-color), var(--accent-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.subtitle {
+            margin: 5px 0 0;
+            font-size: 12px;
+            color: #6B7280;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100%;
+            z-index: 1;
+        }
+
+        /* Styling Legend Floating */
+        .legend-panel {
+            position: absolute;
+            bottom: 30px;
+            right: 20px;
+            width: 220px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            z-index: 1000;
+            border: 1px solid var(--glass-border);
+            font-size: 13px;
+        }
+
+        .legend-header {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #374151;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 6px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .legend-item:hover {
+            background: rgba(255,255,255, 0.5);
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.2);
+        }
+
+        /* Floating Action Button (FAB) untuk Lokasi */
+        .fab-container {
+            position: absolute;
+            bottom: 30px;
+            left: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .fab-btn {
+            width: 45px;
+            height: 45px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: none;
+        }
+
+        .fab-btn:hover {
+            transform: scale(1.1);
+            background: var(--accent-color);
+        }
+
+        .fab-btn i {
+            font-size: 18px;
+        }
+
+        /* Custom Popup Styling */
+        .leaflet-popup-content-wrapper {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            padding: 5px;
+        }
+        
+        .leaflet-popup-tip {
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        .popup-title {
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        /* Notifikasi Toast */
+        .toast {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #10B981;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 50px;
+            font-size: 12px;
+            z-index: 2000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .toast.show {
+            opacity: 1;
+        }
+
+        /* Custom Scrollbar for Layer Control */
+        .leaflet-control-layers-list {
+            font-family: 'Poppins', sans-serif;
+            font-size: 12px;
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <!-- <div id="header-overlay">
+        <h1><i class="fa-solid fa-map-location-dot"></i> GeoDashboard</h1>
+        <p class="subtitle">Pemetaan Profesional & Interaktif</p>
+    </div> -->
+
+    <div id="map"></div>
+
+    <div class="fab-container">
+        <button class="fab-btn" onclick="locateUser()" title="Lokasi Saya">
+            <i class="fa-solid fa-location-crosshairs"></i>
+        </button>
+        <button class="fab-btn" onclick="toggleLayer()" title="Ganti Mode Peta">
+            <i class="fa-solid fa-layer-group"></i>
+        </button>
+        <div id="coord-display" style="background:white; padding:5px 10px; border-radius:8px; font-size:10px; display:none;">
+            Lat, Lng
+        </div>
+    </div>
+
+    <div class="legend-panel">
+        <div class="legend-header">
+            <span>Legenda</span>
+            <i class="fa-solid fa-circle-info" style="color: #9CA3AF;"></i>
+        </div>
+
+        <div class="legend-item">
+            <div class="legend-dot" style="background: #ef4444;"></div>
+            <span>Zona Merah (KML)</span>
+        </div>
+
+        <div class="legend-item">
+            <div class="legend-dot" style="background-color: #10B981;"></div>
+            <span>Vegetasi / Hijau</span>
+        </div>
+
+        <div class="legend-item">
+            <div class="legend-dot" style="background-color: #3B82F6;"></div>
+            <span>Perairan</span>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">Koordinat disalin ke clipboard!</div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-omnivore@latest/leaflet-omnivore.min.js"></script>
+    <script src="https://unpkg.com/leaflet.control.layers.tree/L.Control.Layers.Tree.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+    <script>
+        // 1. Inisialisasi Peta
+        var map = L.map('map', {
+            zoomControl: false // Kita pindahkan zoom control nanti agar rapi
+        }).setView([0.5, 101.5], 11);
+
+        // Pindahkan Zoom Control ke kanan atas
+        L.control.zoom({
+            position: 'topright'
+        }).addTo(map);
+
+        // 2. Basemaps (Peta Dasar) yang Lebih Variatif
+        var osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: '&copy; OpenStreetMap'
+        });
+
+        var googleSat = L.tileLayer("https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", {
+            attribution: '&copy; Google'
+        });
+
+        var darkMatter = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+            attribution: '&copy; CartoDB',
+            subdomains: 'abcd',
+            maxZoom: 20
+        });
+
+        // Default pakai Dark Matter biar keren, atau Google Satelit
+        googleSat.addTo(map);
+
+        var baseLayers = {
+            "Google Satellite": googleSat,
+            "OpenStreetMap": osm,
+            "Dark Mode (Carto)": darkMatter
+        };
+
+        // 3. Load KML dengan Error Handling & Styling
+        var customKmlStyle = {
+            color: '#ef4444', // Merah modern
+            weight: 3,
+            opacity: 0.8,
+            fillOpacity: 0.3
+        };
+
+        var kmlLayer = omnivore.kml("Rumah.kml", null, L.geoJson(null, {
+            style: customKmlStyle,
+            onEachFeature: function(feature, layer) {
+                // Popup interaktif saat KML diklik
+                if (feature.properties && feature.properties.name) {
+                    layer.bindPopup(`<div class='popup-title'>${feature.properties.name}</div><p>${feature.properties.description || ''}</p>`);
+                }
+            }
+        }))
+        .on("ready", function () {
+            map.fitBounds(kmlLayer.getBounds());
+            showToast("Data KML berhasil dimuat!");
+        })
+        .on("error", function () {
+            console.warn("File KML tidak ditemukan atau error.");
+            // Tidak menampilkan alert blocking agar user experience tetap lancar
+        });
+
+        // 4. Layer Control Tree
+        var overlaytree = {
+            label: "Layer Data",
+            children: [
+                { label: "📍 Data KML", layer: kmlLayer }
+            ]
+        };
+
+        // Menambahkan kontrol layer tapi disembunyikan dalam tombol (bisa diakses via toggle)
+        var layerControl = L.control.layers.tree(baseLayers, overlaytree, { 
+            collapsed: true,
+            position: 'topright'
+        }).addTo(map);
+
+        // 5. Fitur Search (Pencarian)
+        L.Control.geocoder({
+            defaultMarkGeocode: false,
+            position: 'topleft',
+            placeholder: 'Cari lokasi...'
+        })
+        .on('markgeocode', function(e) {
+            var bbox = e.geocode.bbox;
+            var poly = L.polygon([
+                bbox.getSouthEast(),
+                bbox.getNorthEast(),
+                bbox.getNorthWest(),
+                bbox.getSouthWest()
+            ]).addTo(map);
+            map.fitBounds(poly.getBounds());
+            
+            L.popup()
+                .setLatLng(e.geocode.center)
+                .setContent(`<div class='popup-title'>${e.geocode.name}</div>`)
+                .openOn(map);
+        })
+        .addTo(map);
+
+        // Styling ulang input search via JS DOM manipulation agar rounded
+        document.querySelector('.leaflet-control-geocoder-form input').style.borderRadius = "20px";
+        document.querySelector('.leaflet-control-geocoder-icon').style.borderRadius = "50%";
+
+        // 6. Fitur Interaktif: Klik Peta untuk Koordinat
+        map.on('click', function(e) {
+            var lat = e.latlng.lat.toFixed(5);
+            var lng = e.latlng.lng.toFixed(5);
+            
+            // Copy ke clipboard
+            navigator.clipboard.writeText(`${lat}, ${lng}`).then(function() {
+                showToast(`Koordinat ${lat}, ${lng} disalin!`);
+            });
+
+            // Tampilkan popup sementara
+            L.popup()
+                .setLatLng(e.latlng)
+                .setContent(`<div style="text-align:center;"><b>Koordinat:</b><br>${lat}, ${lng}<br><i class="fa-solid fa-check" style="color:green; font-size:10px;"></i> Disalin</div>`)
+                .openOn(map);
+        });
+
+        // Fungsi Tombol: Lokasi Saya
+        function locateUser() {
+            map.locate({setView: true, maxZoom: 16});
+            showToast("Mencari lokasimu...");
+        }
+
+        map.on('locationfound', function(e) {
+            var radius = e.accuracy;
+            L.marker(e.latlng).addTo(map)
+                .bindPopup("Kamu ada di sekitar sini").openPopup();
+            L.circle(e.latlng, radius).addTo(map);
+        });
+
+        map.on('locationerror', function(e) {
+            showToast("Gagal menemukan lokasi.");
+        });
+
+        // Fungsi Tombol: Toggle Layer (Visual Effect)
+        function toggleLayer() {
+            // Ini trik simulasi klik tombol layer default leaflet agar muncul
+            var container = document.querySelector('.leaflet-control-layers');
+            if(container.className.includes('leaflet-control-layers-expanded')){
+                container.classList.remove('leaflet-control-layers-expanded');
+            } else {
+                container.classList.add('leaflet-control-layers-expanded');
+            }
+        }
+
+        // Fungsi Utilitas: Toast Notification
+        function showToast(message) {
+            var toast = document.getElementById("toast");
+            toast.innerText = message;
+            toast.classList.add("show");
+            setTimeout(function(){ toast.classList.remove("show"); }, 3000);
+        }
+
+    </script>
+
+</body>
+</html>
